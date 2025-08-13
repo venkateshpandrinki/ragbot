@@ -55,18 +55,35 @@ const generateChunks = (input: string): string[] => {
     return embedding;
   };
 
-  export const findRelevantContent = async (userQuery:string) => {
-    const userQueryEmbedded = await generateEmbedding(userQuery);
-     const similarity = sql<number>`1 - (${cosineDistance(
-      embeddings.embedding, userQueryEmbedded,
-  )})`;
-  const similarGuides = await db
-    .select({ name: embeddings.content, similarity })
-    .from(embeddings)
-    .where(gt(similarity, 0.5))
-    .orderBy(t => desc(t.similarity))
-    .limit(4);
-     console.log("DEBUG - findRelevantContent result:", JSON.stringify(similarGuides, null, 2));
-return { results: similarGuides }; // wraps array in an object
+export const findRelevantContent = async (userQuery: string) => {
+  const userQueryEmbedded = await generateEmbedding(userQuery);
 
-  }
+  const similarity = sql<number>`1 - (${cosineDistance(
+    embeddings.embedding,
+    userQueryEmbedded
+  )})`;
+
+  const similarGuides = await db
+    .select({
+      content: embeddings.content,
+      similarity,
+    })
+    .from(embeddings)
+    .where(gt(similarity, 0.3))
+    .orderBy((t) => desc(t.similarity))
+    .limit(4);
+    console.log('Query embedding length:', userQueryEmbedded.length)
+
+  // Ensure it's safe for JSON
+  const results = similarGuides.map((r) => ({
+    content: r.content,
+    similarity: Number(r.similarity),
+  }));
+
+  console.log(
+    "DEBUG - findRelevantContent result:",
+    JSON.stringify(results, null, 2)
+  );
+
+  return { results };
+};
